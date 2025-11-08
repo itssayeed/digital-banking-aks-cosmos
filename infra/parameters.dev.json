@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName": {
+      "value": "dbanking"
+    },
+    "location": {
+      "value": "southindia"
+    },
+    "agentVmSize": {
+      "value": "Standard_D2s_v3"
+    },
+    "agentCount": {
+      "value": 2
+    },
+    "acrSku": {
+      "value": "Standard"
+    },
+    "cosmosThroughput": {
+      "value": 400
+    },
+    "tags": {
+      "value": {
+        "owner": "your-name",
+        "env": "dev"
+      }
+    }
+  }
+}
