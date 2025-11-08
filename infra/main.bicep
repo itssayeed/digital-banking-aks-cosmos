@@ -17,6 +17,9 @@ param acrSku string = 'Standard'
 @description('Cosmos DB throughput (RU/s). Set to 400 for Minimal')
 param cosmosThroughput int = 400
 
+@description('SSH public key for AKS nodes')
+param sshPublicKey string = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFc86RqENQP/zTC4MtwinmJQU92X4h/3+o3RbIJ3sE9P itssa@Ahmed'
+
 @description('Tags applied to all resources')
 param tags object = {
   project: 'digital-banking-aks-cosmos'
@@ -135,7 +138,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-02-01' = {
       ssh: {
         publicKeys: [
           {
-            keyData: 'ssh-rsa AAAAB3NzaC1...GeneratedByYouOrReplace'
+            keyData: sshPublicKey
           }
         ]
       }
@@ -164,17 +167,17 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-02-01' = {
 }
 
 // Grant AKS access to pull images from ACR -> Role assignment
-resource acrPullRole 'Microsoft.Authorization/roleAssignments@2020-10-01-preview' = if (true) {
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2020-10-01-preview' = {
   name: guid(aks.id, acr.id, 'acrpull')
+  scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
     principalId: aks.identity.principalId
     principalType: 'ServicePrincipal'
-    scope: acr.id
   }
   dependsOn: [
-    aks
     acr
+    aks
   ]
 }
 

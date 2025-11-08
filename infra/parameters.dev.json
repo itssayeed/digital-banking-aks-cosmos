@@ -14,6 +14,9 @@
     "agentCount": {
       "value": 2
     },
+   "sshPublicKey": {
+      "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFc86RqENQP/zTC4MtwinmJQU92X4h/3+o3RbIJ3sE9P"   
+    },
     "acrSku": {
       "value": "Standard"
     },
