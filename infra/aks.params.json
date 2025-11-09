@@ -1,0 +1,11 @@
+{
+  "baseName": {
+    "value": "dbanking"
+  },
+  "location": {
+    "value": "southindia"
+  },
+  "sshPublicKey": {
+    "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJai4TYI5vsUYBd8IG2b1uVwMia9YEFFYLtA3RX0Tvbc itssa@Ahmed"
+  }
+}
