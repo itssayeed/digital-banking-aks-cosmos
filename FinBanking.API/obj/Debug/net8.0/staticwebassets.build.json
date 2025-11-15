@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "n2Kx0s4wT//+G9VCWULRzIlhwDRYXEKFzkOlgwAH5sI=",
+  "Source": "FinBanking.Api",
+  "BasePath": "_content/FinBanking.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
