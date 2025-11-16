@@ -11,3 +11,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
     adminUserEnabled: true
   }
 }
+
+output acrId string = acr.id
+output acrName string = acr.name
+output acrLoginServer string = acr.properties.loginServer

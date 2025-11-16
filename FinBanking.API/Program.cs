@@ -1,59 +1,106 @@
-using FinBanking.Api.Models;
+// Program.cs
+using FinBanking.Api.DTOs;
 using FinBanking.Api.Services;
 using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Register Cosmos Client & Repository
+var cosmosConn = builder.Configuration["COSMOS_CONN_STRING"]
+    ?? throw new InvalidOperationException("COSMOS_CONN_STRING missing");
+
+builder.Services.AddSingleton<CosmosClient>(new CosmosClient(cosmosConn));
+builder.Services.AddScoped<IAccountRepository, CosmosAccountRepository>();
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Cosmos client registration
-var cosmosConn = builder.Configuration["COSMOS_CONN_STRING"];
-builder.Services.AddSingleton(s => new CosmosClient(cosmosConn));
-
-// Register repository to use Cosmos instead of in-memory
-builder.Services.AddSingleton<IAccountRepository, CosmosAccountRepository>();
-
 var app = builder.Build();
 
-// Middleware
-app.UseSwagger();
-app.UseSwaggerUI();
-
-app.MapGet("/", () => "FinBanking API is running with Cosmos DB 🌩️");
-
-// POST: Create
-app.MapPost("/api/accounts", async (Account account, IAccountRepository repo) =>
+if (app.Environment.IsDevelopment())
 {
-    if (string.IsNullOrWhiteSpace(account.CustomerName) || string.IsNullOrWhiteSpace(account.Email))
-        return Results.BadRequest("CustomerName and Email are required.");
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+// === CRUD ENDPOINTS ===
+
+// CREATE
+app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var account = new Account
+    {
+        Id=Guid.NewGuid().ToString(),
+        CustomerName = dto.CustomerName,
+        Email = dto.Email,
+        Balance = dto.Balance        
+    };
 
     var created = await repo.CreateAsync(account);
-    return Results.Created($"/api/accounts/{created.Id}", created);
+    return Results.Created($"/api/accounts/{created.Id}", new AccountDto(
+        created.Id,
+        created.CustomerName,
+        created.Email,
+        created.Balance,
+        created.CreatedAt
+    ));
 });
 
-// GET: List all
-app.MapGet("/api/accounts", async (IAccountRepository repo) =>
-{
-    return Results.Ok(await repo.GetAllAsync());
-});
-
-// GET: By ID
+// READ ONE
 app.MapGet("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
 {
     var account = await repo.GetByIdAsync(id);
-    return account is null ? Results.NotFound() : Results.Ok(account);
+    return account is null
+        ? Results.NotFound()
+        : Results.Ok(new AccountDto(
+            account.Id,
+            account.CustomerName,
+            account.Email,
+            account.Balance,
+            account.CreatedAt
+        ));
 });
 
-// PUT: Update
-app.MapPut("/api/accounts/{id}", async (string id, Account updated, IAccountRepository repo) =>
+// READ ALL
+app.MapGet("/api/accounts", async (IAccountRepository repo) =>
 {
-    var result = await repo.UpdateAsync(id, updated);
-    return result is null ? Results.NotFound() : Results.Ok(result);
+    var accounts = await repo.GetAllAsync();
+    var dtos = accounts.Select(a => new AccountDto(
+        a.Id, a.CustomerName, a.Email, a.Balance, a.CreatedAt
+    ));
+    return Results.Ok(dtos);
 });
 
-// DELETE: Delete
+// UPDATE
+app.MapPut("/api/accounts/{id}", async (string id, CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var existing = await repo.GetByIdAsync(id);
+    if (existing is null) return Results.NotFound();
+
+    var updated = new Account
+    {
+        Id = id, // Keep same id
+        CustomerName = dto.CustomerName,
+        Email = dto.Email,
+        Balance = dto.Balance
+    };
+
+    var result = await repo.UpdateAsync(id, updated);
+    return result is null
+        ? Results.BadRequest()
+        : Results.Ok(new AccountDto(
+            result.Id,
+            result.CustomerName,
+            result.Email,
+            result.Balance,
+            result.CreatedAt
+        ));
+});
+
+// DELETE
 app.MapDelete("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
 {
     var deleted = await repo.DeleteAsync(id);

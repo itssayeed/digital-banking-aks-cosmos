@@ -1,9 +1,8 @@
 param baseName string
 param location string
 param sshPublicKey string
-param adminUsername string = 'azureuser'
 
-var aksName = toLower('${baseName}-aks')
+var aksName = '${baseName}-aks'
 
 resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
   name: aksName
@@ -24,19 +23,19 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
     agentPoolProfiles: [
       {
         name: 'systempool'
-        count: 1
+        count: 1             // 1 node so cluster can start
         vmSize: 'Standard_B2s'
         osType: 'Linux'
         osSKU: 'Ubuntu'
         mode: 'System'
-
-        // ❌ remove spot, system pool cannot be spot
-        enableNodePublicIP: false
+        enableAutoScaling: true
+        minCount: 1
+        maxCount: 1
       }
     ]
 
     linuxProfile: {
-      adminUsername: adminUsername
+      adminUsername: 'azureuser'
       ssh: {
         publicKeys: [
           {
@@ -56,3 +55,4 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
 }
 
 output aksName string = aks.name
+output aksPrincipalId string = aks.identity.principalId

@@ -1,5 +1,3 @@
-using FinBanking.Api.Models;
-
 namespace FinBanking.Api.Services;
 
 public interface IAccountRepository

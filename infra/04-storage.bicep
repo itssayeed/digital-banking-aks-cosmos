@@ -1,21 +1,22 @@
 param baseName string
 param location string
 
-// Storage account name must be globally unique, only lowercase letters & numbers, 3-24 chars
 var storageName = toLower('${baseName}st${uniqueString(resourceGroup().id)}')
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageName
   location: location
   sku: {
-    name: 'Standard_LRS' // Lowest cost
+    name: 'Standard_LRS'
   }
   kind: 'StorageV2'
   properties: {
-    accessTier: 'Hot'        // But still cheap
+    accessTier: 'Hot'
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    supportsHttpsTrafficOnly: true
   }
 }
 
 output storageAccountName string = storageAccount.name
+output storagePrimaryBlobEndpoint string = storageAccount.properties.primaryEndpoints.blob

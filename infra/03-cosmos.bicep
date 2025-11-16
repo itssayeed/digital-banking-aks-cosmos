@@ -1,7 +1,6 @@
 param baseName string
 param location string
 
-// Cosmos account name must be all lowercase, only letters and numbers, length <= 44
 var cosmosName = toLower('${baseName}cosmos${uniqueString(resourceGroup().id)}')
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
@@ -11,20 +10,40 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
   properties: {
     databaseAccountOfferType: 'Standard'
     capabilities: [
-      {
-        name: 'EnableServerless'
-      }
+      { name: 'EnableServerless' }
     ]
     locations: [
       {
         locationName: location
         failoverPriority: 0
-        isZoneRedundant: false
       }
     ]
     enableFreeTier: true
-    disableKeyBasedMetadataWriteAccess: false
   }
 }
 
-output cosmosDbName string = cosmos.name
+// Database
+resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
+  name: '${cosmos.name}/dbanking'
+  properties: {
+    resource: { id: 'dbanking' }
+  }
+}
+
+// Container
+resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  name: '${cosmosDb.name}/accounts'
+  properties: {
+    resource: {
+      id: 'accounts'
+      partitionKey: {
+        paths: ['/id']
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+output cosmosAccountName string = cosmos.name
+output cosmosDatabaseName string = cosmosDb.name
+output cosmosContainerName string = cosmosContainer.name

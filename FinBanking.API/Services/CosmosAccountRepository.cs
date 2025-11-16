@@ -1,4 +1,3 @@
-using FinBanking.Api.Models;
 using Microsoft.Azure.Cosmos;
 
 namespace FinBanking.Api.Services;
@@ -9,13 +8,15 @@ public class CosmosAccountRepository : IAccountRepository
 
     public CosmosAccountRepository(CosmosClient client, IConfiguration config)
     {
-        var databaseName = config["COSMOS_DATABASE"];
-        var containerName = config["COSMOS_CONTAINER"];
+        var databaseName = config["COSMOS_DATABASE"] ?? "FinBankingDb";
+        var containerName = config["COSMOS_CONTAINER"] ?? "Accounts";
         _container = client.GetContainer(databaseName, containerName);
     }
 
     public async Task<Account> CreateAsync(Account account)
     {
+        // Ensure Id is set
+        account.Id ??= Guid.NewGuid().ToString();
         await _container.CreateItemAsync(account, new PartitionKey(account.Id));
         return account;
     }
@@ -36,24 +37,22 @@ public class CosmosAccountRepository : IAccountRepository
     public async Task<IEnumerable<Account>> GetAllAsync()
     {
         var query = _container.GetItemQueryIterator<Account>("SELECT * FROM c");
-        List<Account> results = new();
+        var results = new List<Account>();
         while (query.HasMoreResults)
-            results.AddRange(await query.ReadNextAsync());
+        {
+            var response = await query.ReadNextAsync();
+            results.AddRange(response);
+        }
         return results;
     }
 
     public async Task<Account?> UpdateAsync(string id, Account account)
     {
-        try
-        {
-            account.Id = id;
-            var response = await _container.ReplaceItemAsync(account, id, new PartitionKey(id));
-            return response.Resource;
-        }
-        catch
-        {
-            return null;
-        }
+        if (await GetByIdAsync(id) == null) return null;
+
+        account.Id = id; // Force correct id
+        var response = await _container.ReplaceItemAsync(account, id, new PartitionKey(id));
+        return response.Resource;
     }
 
     public async Task<bool> DeleteAsync(string id)
@@ -63,7 +62,7 @@ public class CosmosAccountRepository : IAccountRepository
             await _container.DeleteItemAsync<Account>(id, new PartitionKey(id));
             return true;
         }
-        catch
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             return false;
         }
