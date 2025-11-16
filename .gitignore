@@ -1,0 +1,22 @@
+# Build folders
+**/bin/
+**/obj/
+
+# User secrets
+appsettings.json
+
+# Published output
+*.dll
+*.pdb
+
+# Visual Studio
+*.user
+*.suo
+*.vs/
+
+# Logs
+*.log
+
+# System
+.DS_Store
+Thumbs.db
