@@ -8,8 +8,8 @@ public class CosmosAccountRepository : IAccountRepository
 
     public CosmosAccountRepository(CosmosClient client, IConfiguration config)
     {
-        var databaseName = config["COSMOS_DATABASE"] ?? "FinBankingDb";
-        var containerName = config["COSMOS_CONTAINER"] ?? "Accounts";
+        var databaseName = config["COSMOS_DATABASE"] ?? "dbanking";
+        var containerName = config["COSMOS_CONTAINER"] ?? "accounts";
         _container = client.GetContainer(databaseName, containerName);
     }
 
