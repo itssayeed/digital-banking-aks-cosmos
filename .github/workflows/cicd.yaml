@@ -24,8 +24,7 @@ jobs:
           az acr login --name ${{ secrets.ACR_LOGIN_SERVER }}
 
       - name: Build and push Docker image
-        run: |
-          IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/finbanking-api:v${{ github.run_number }}
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-          docker build -t $IMAGE .
-          docker push $IMAGE
+  run: |
+    IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/finbanking-api:v${{ github.run_number }}
+    docker build -t $IMAGE ./FinBanking.API
+    docker push $IMAGE

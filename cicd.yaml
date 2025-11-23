@@ -1,0 +1,37 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to ACR
+      run: |
+        az acr login --name ${{ secrets.ACR_LOGIN_SERVER }}
+
+    - name: Build and Push Docker Image
+      run: |
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/finbanking-api:${{ github.sha }} .
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/finbanking-api:${{ github.sha }}
+
+    - name: Set AKS Context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+    - name: Deploy to AKS
+      run: |
+        kubectl set image deployment/finbanking-api finbanking-api=${{ secrets.ACR_LOGIN_SERVER }}/finbanking-api:${{ github.sha }}
