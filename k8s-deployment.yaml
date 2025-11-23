@@ -17,3 +17,10 @@ spec:
         image: dbankingacr.azurecr.io/finbanking-api:v1
         ports:
         - containerPort: 8080
+        env:
+        - name: COSMOS_CONN_STRING
+          value: "NIL;"
+        - name: COSMOS_DATABASE
+          value: "dbanking"
+        - name: COSMOS_CONTAINER
+          value: "accounts"
