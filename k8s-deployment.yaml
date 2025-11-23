@@ -19,7 +19,10 @@ spec:
         - containerPort: 8080
         env:
         - name: COSMOS_CONN_STRING
-          value: "NIL;"
+          valueFrom:
+            secretKeyRef:
+              name: cosmos-secret
+              key: COSMOS_CONN_STRING
         - name: COSMOS_DATABASE
           value: "dbanking"
         - name: COSMOS_CONTAINER
