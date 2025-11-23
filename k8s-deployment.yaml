@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finbanking-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finbanking-api
+  template:
+    metadata:
+      labels:
+        app: finbanking-api
+    spec:
+      containers:
+      - name: finbanking-api
+        image: dbankingacr.azurecr.io/finbanking-api:v1
+        ports:
+        - containerPort: 8080
