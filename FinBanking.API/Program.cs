@@ -1,45 +1,66 @@
-// Program.cs
 using FinBanking.Api.DTOs;
 using FinBanking.Api.Services;
 using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register Cosmos Client & Repository
-var cosmosConn = builder.Configuration["COSMOS_CONN_STRING"]
+// ---------------------------------------------------------------
+// Load configuration (supports local via appsettings.Development.json,
+// Docker via env variables, and AKS via secrets)
+// ---------------------------------------------------------------
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+var config = builder.Configuration;
+
+// ---------------------------------------------------------------
+// Cosmos DB registration
+// ---------------------------------------------------------------
+var cosmosConn = config["COSMOS_CONN_STRING"]
     ?? throw new InvalidOperationException("COSMOS_CONN_STRING missing");
 
 builder.Services.AddSingleton<CosmosClient>(new CosmosClient(cosmosConn));
-builder.Services.AddScoped<IAccountRepository, CosmosAccountRepository>();
 
+// MATCHES your exact repository constructor: (CosmosClient, IConfiguration)
+builder.Services.AddScoped<IAccountRepository>(provider =>
+{
+    var client = provider.GetRequiredService<CosmosClient>();
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    return new CosmosAccountRepository(client, configuration);
+});
+
+// ---------------------------------------------------------------
 // Swagger
+// ---------------------------------------------------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// if (app.Environment.IsDevelopment())
-// {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-// }
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// === CRUD ENDPOINTS ===
+// ---------------------------------------------------------------
+// CRUD API ENDPOINTS
+// ---------------------------------------------------------------
 
 // CREATE
 app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository repo) =>
 {
     var account = new Account
     {
-        Id=Guid.NewGuid().ToString(),
+        Id = Guid.NewGuid().ToString(),
         CustomerName = dto.CustomerName,
         Email = dto.Email,
         Balance = dto.Balance        
     };
 
     var created = await repo.CreateAsync(account);
+
     return Results.Created($"/api/accounts/{created.Id}", new AccountDto(
         created.Id,
         created.CustomerName,
@@ -82,7 +103,7 @@ app.MapPut("/api/accounts/{id}", async (string id, CreateAccountDto dto, IAccoun
 
     var updated = new Account
     {
-        Id = id, // Keep same id
+        Id = id,
         CustomerName = dto.CustomerName,
         Email = dto.Email,
         Balance = dto.Balance
