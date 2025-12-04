@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: finbanking-api
+spec:
+  type: LoadBalancer
+  selector:
+    app: finbanking-api
+  ports:
+  - port: 8080
+    targetPort: 8080
