@@ -19,4 +19,5 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
   }
 }
 
-output keyVaultName string = keyVault.name
+output keyVaultUri string = keyVault.properties.vaultUri
+

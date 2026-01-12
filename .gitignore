@@ -4,6 +4,7 @@
 
 # User secrets
 appsettings.json
+appsettings.Developmnet.json
 
 # Published output
 *.dll

@@ -19,10 +19,24 @@ var config = builder.Configuration;
 // ---------------------------------------------------------------
 // Cosmos DB registration
 // ---------------------------------------------------------------
-var cosmosConn = config["COSMOS_CONN_STRING"]
-    ?? throw new InvalidOperationException("COSMOS_CONN_STRING missing");
+var cosmosConn = config["COSMOS_ENDPOINT"]
+    ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
 
-builder.Services.AddSingleton<CosmosClient>(new CosmosClient(cosmosConn));
+builder.Services.AddSingleton<CosmosClient>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+
+    var endpoint = configuration["COSMOS_ENDPOINT"]
+        ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
+
+    var key = Environment.GetEnvironmentVariable("COSMOS_KEY");
+
+    if (string.IsNullOrEmpty(key))
+        throw new InvalidOperationException("COSMOS_KEY missing");
+
+    return new CosmosClient(endpoint, key);
+});
+
 
 // MATCHES your exact repository constructor: (CosmosClient, IConfiguration)
 builder.Services.AddScoped<IAccountRepository>(provider =>
