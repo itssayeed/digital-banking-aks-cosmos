@@ -1,6 +1,7 @@
 using FinBanking.Api.DTOs;
 using FinBanking.Api.Services;
 using Microsoft.Azure.Cosmos;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,13 +34,9 @@ builder.Services.AddSingleton<CosmosClient>(sp =>
 
     // 🔐 Managed Identity (FOR LATER)
     if (authMode.Equals("ManagedIdentity", StringComparison.OrdinalIgnoreCase))
-    {
-        throw new NotSupportedException(
-            "ManagedIdentity is not enabled yet. Switch AuthMode to 'Key'."
-        );
-
+    {        
         // Later you will replace above with:
-        // return new CosmosClient(endpoint, new DefaultAzureCredential());
+        return new CosmosClient(endpoint, new DefaultAzureCredential());
     }
 
     // 🔑 Key-based auth (CURRENT)
