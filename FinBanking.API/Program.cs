@@ -29,10 +29,22 @@ builder.Services.AddSingleton<CosmosClient>(sp =>
     var endpoint = configuration["COSMOS_ENDPOINT"]
         ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
 
-    var key = Environment.GetEnvironmentVariable("COSMOS_KEY");
+    var authMode = configuration["AuthMode"] ?? "Key";
 
-    if (string.IsNullOrEmpty(key))
-        throw new InvalidOperationException("COSMOS_KEY missing");
+    // 🔐 Managed Identity (FOR LATER)
+    if (authMode.Equals("ManagedIdentity", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new NotSupportedException(
+            "ManagedIdentity is not enabled yet. Switch AuthMode to 'Key'."
+        );
+
+        // Later you will replace above with:
+        // return new CosmosClient(endpoint, new DefaultAzureCredential());
+    }
+
+    // 🔑 Key-based auth (CURRENT)
+    var key = Environment.GetEnvironmentVariable("COSMOS_KEY")
+        ?? throw new InvalidOperationException("COSMOS_KEY missing");
 
     return new CosmosClient(endpoint, key);
 });
@@ -43,8 +55,10 @@ builder.Services.AddScoped<IAccountRepository>(provider =>
 {
     var client = provider.GetRequiredService<CosmosClient>();
     var configuration = provider.GetRequiredService<IConfiguration>();
+
     return new CosmosAccountRepository(client, configuration);
 });
+
 
 // ---------------------------------------------------------------
 // Swagger
