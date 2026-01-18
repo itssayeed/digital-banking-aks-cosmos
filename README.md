@@ -111,6 +111,73 @@ docker push dbankingacr.azurecr.io/finbanking-api:v1
 
 
 ☸️ PHASE 3 — Deploy Application to AKS
+11. Connect kubectl to AKS (One-time per machine)
+az aks get-credentials `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --overwrite-existing
+
+
+Verify:
+
+kubectl get nodes
+
+12. Attach ACR to AKS (Safe to Re-run)
+az aks update `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --attach-acr dbankingacr
+
+13. Deploy Application Manifests
+kubectl apply -f finbanking-deployment.yaml
+kubectl apply -f finbanking-service.yaml
+
+✅ PHASE 4 — Verification
+14. Check Deployment Status
+kubectl get pods
+kubectl get svc
+
+
+Wait until:
+
+Pod status = Running
+
+Service has an EXTERNAL-IP
+
+15. Test Application
+
+Open:
+
+http://<EXTERNAL-IP>/swagger/index.html
+
+
+Verify CRUD:
+
+POST /api/accounts
+
+GET /api/accounts
+
+PUT /api/accounts/{id}
+
+DELETE /api/accounts/{id}
+
+✅ Data stored in Cosmos DB
+✅ Auth via Managed Identity
+✅ No secrets used
+
+🔎 DEBUG (Not Part of Normal Flow)
+
+Use only if needed:
+
+kubectl logs <pod-name>
+kubectl describe svc finbanking-api-service
+kubectl port-forward deployment/finbanking-api 5035:5035
+
+
+Local test:
+
+http://localhost:5035/swagger/index.html
+
 
 
 
