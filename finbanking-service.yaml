@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: finbanking-api-service
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: finbanking-api
   ports:
