@@ -13,12 +13,16 @@ spec:
         app: finbanking-api
     spec:
       containers:
-        - name: finbanking-api
-          image: dbankingacr.azurecr.io/finbanking-api:v1
-          ports:
-            - containerPort: 8080
-          env:
-            - name: COSMOS_ENDPOINT
-              value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
-            - name: AuthMode
-              value: "ManagedIdentity"
+      - name: finbanking-api
+        image: dbankingacr.azurecr.io/finbanking-api:v1
+        env:
+        - name: COSMOS_ENDPOINT
+          value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
+        - name: COSMOS_DATABASE
+          value: "dbanking"
+        - name: COSMOS_CONTAINER
+          value: "accounts"
+        - name: AuthMode
+          value: "ManagedIdentity"
+        ports:
+        - containerPort: 80
