@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: finbanking-api
+spec:
+  type: ClusterIP
+  selector:
+    app: finbanking-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
