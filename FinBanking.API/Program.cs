@@ -2,29 +2,41 @@ using FinBanking.Api.DTOs;
 using FinBanking.Api.Services;
 using Microsoft.Azure.Cosmos;
 using Azure.Identity;
+using FinBanking.Api.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------
 // Key Vault – startup fail-fast configuration
 // ---------------------------------------------------------------
+KeyVaultConfigurationLoader? kvLoader = null;
+
 var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
 
 if (!string.IsNullOrWhiteSpace(keyVaultUri))
 {
-    var kvLoader = new KeyVaultConfigurationLoader(keyVaultUri);
+    kvLoader = new KeyVaultConfigurationLoader(keyVaultUri);
 
+    // Cosmos endpoint
     var cosmosEndpointFromKv =
         await kvLoader.GetRequiredSecretAsync("cosmos-endpoint");
 
     Environment.SetEnvironmentVariable(
         "COSMOS_ENDPOINT",
         cosmosEndpointFromKv);
+
+    // Application Insights
+    var appInsightsConnString =
+        await kvLoader.GetRequiredSecretAsync("appinsights-connection-string");
+
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = appInsightsConnString;
+    });
 }
 
 // ---------------------------------------------------------------
-// Load configuration (supports local via appsettings.Development.json,
-// Docker via env variables, and AKS via secrets)
+// Load configuration
 // ---------------------------------------------------------------
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
@@ -37,9 +49,6 @@ var config = builder.Configuration;
 // ---------------------------------------------------------------
 // Cosmos DB registration
 // ---------------------------------------------------------------
-var cosmosConn = config["COSMOS_ENDPOINT"]
-    ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
-
 builder.Services.AddSingleton<CosmosClient>(sp =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
@@ -49,22 +58,17 @@ builder.Services.AddSingleton<CosmosClient>(sp =>
 
     var authMode = configuration["AuthMode"] ?? "Key";
 
-    // 🔐 Managed Identity (FOR LATER)
     if (authMode.Equals("ManagedIdentity", StringComparison.OrdinalIgnoreCase))
-    {        
-        // Later you will replace above with:
+    {
         return new CosmosClient(endpoint, new DefaultAzureCredential());
     }
 
-    // 🔑 Key-based auth (CURRENT)
     var key = Environment.GetEnvironmentVariable("COSMOS_KEY")
         ?? throw new InvalidOperationException("COSMOS_KEY missing");
 
     return new CosmosClient(endpoint, key);
 });
 
-
-// MATCHES your exact repository constructor: (CosmosClient, IConfiguration)
 builder.Services.AddScoped<IAccountRepository>(provider =>
 {
     var client = provider.GetRequiredService<CosmosClient>();
@@ -73,7 +77,6 @@ builder.Services.AddScoped<IAccountRepository>(provider =>
     return new CosmosAccountRepository(client, configuration);
 });
 
-
 // ---------------------------------------------------------------
 // Swagger
 // ---------------------------------------------------------------
@@ -81,16 +84,15 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
 // ---------------------------------------------------------------
-// CRUD API ENDPOINTS
+// CRUD API
 // ---------------------------------------------------------------
-
-// CREATE
 app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository repo) =>
 {
     var account = new Account
@@ -98,7 +100,7 @@ app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository rep
         Id = Guid.NewGuid().ToString(),
         CustomerName = dto.CustomerName,
         Email = dto.Email,
-        Balance = dto.Balance        
+        Balance = dto.Balance
     };
 
     var created = await repo.CreateAsync(account);
@@ -112,7 +114,6 @@ app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository rep
     ));
 });
 
-// READ ONE
 app.MapGet("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
 {
     var account = await repo.GetByIdAsync(id);
@@ -127,43 +128,32 @@ app.MapGet("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
         ));
 });
 
-// READ ALL
 app.MapGet("/api/accounts", async (IAccountRepository repo) =>
 {
     var accounts = await repo.GetAllAsync();
-    var dtos = accounts.Select(a => new AccountDto(
-        a.Id, a.CustomerName, a.Email, a.Balance, a.CreatedAt
-    ));
-    return Results.Ok(dtos);
+    return Results.Ok(accounts.Select(a =>
+        new AccountDto(a.Id, a.CustomerName, a.Email, a.Balance, a.CreatedAt)));
 });
 
-// UPDATE
 app.MapPut("/api/accounts/{id}", async (string id, CreateAccountDto dto, IAccountRepository repo) =>
 {
     var existing = await repo.GetByIdAsync(id);
     if (existing is null) return Results.NotFound();
 
-    var updated = new Account
-    {
-        Id = id,
-        CustomerName = dto.CustomerName,
-        Email = dto.Email,
-        Balance = dto.Balance
-    };
+    existing.CustomerName = dto.CustomerName;
+    existing.Email = dto.Email;
+    existing.Balance = dto.Balance;
 
-    var result = await repo.UpdateAsync(id, updated);
-    return result is null
-        ? Results.BadRequest()
-        : Results.Ok(new AccountDto(
-            result.Id,
-            result.CustomerName,
-            result.Email,
-            result.Balance,
-            result.CreatedAt
-        ));
+    var result = await repo.UpdateAsync(id, existing);
+    return Results.Ok(new AccountDto(
+        result.Id,
+        result.CustomerName,
+        result.Email,
+        result.Balance,
+        result.CreatedAt
+    ));
 });
 
-// DELETE
 app.MapDelete("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
 {
     var deleted = await repo.DeleteAsync(id);
