@@ -6,6 +6,23 @@ using Azure.Identity;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------
+// Key Vault – startup fail-fast configuration
+// ---------------------------------------------------------------
+var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
+
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    var kvLoader = new KeyVaultConfigurationLoader(keyVaultUri);
+
+    var cosmosEndpointFromKv =
+        await kvLoader.GetRequiredSecretAsync("cosmos-endpoint");
+
+    Environment.SetEnvironmentVariable(
+        "COSMOS_ENDPOINT",
+        cosmosEndpointFromKv);
+}
+
+// ---------------------------------------------------------------
 // Load configuration (supports local via appsettings.Development.json,
 // Docker via env variables, and AKS via secrets)
 // ---------------------------------------------------------------
