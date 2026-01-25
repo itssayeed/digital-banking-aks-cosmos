@@ -36,7 +36,7 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }} ./finbanking.api
+          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }} ./FinBanking.API
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }}
 
       - name: Set AKS context
