@@ -1,0 +1,213 @@
+CI/CD workflow
+=============
+
+az login
+
+select subscription
+
+$APP_NAME = "github-actions-dbanking"
+
+Run this 
+======
+ $APP = $APP = az ad app create --display-name $APP_NAME --query "{appId:appId, objectId:id}" -o json | ConvertFrom-Json
+
+$APP 
+
+O/P
+===
+
+PS D:\azure\digital-banking-aks-cosmos> $APP
+
+appId                                objectId
+-----                                --------
+e04f7b83-9c5a-4015-9d00-f5e38ffff971 41ef2e32-2504-4099-81b1-d989a77393f3
+
+Run this
+=======
+1️⃣ Create a JSON file (once)
+
+From D:\azure\digital-banking-aks-cosmos:
+
+notepad federated-credential.json
+
+
+Paste exactly this (replace nothing, it’s already correct for your repo):
+
+{
+  "name": "github-main-branch",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:itssayeed/digital-banking-aks-cosmos:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}
+
+ az ad app federated-credential create `
+>>   --id 41ef2e32-2504-4099-81b1-d989a77393f3 `
+>>   --parameters federated-credential.json
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#applications('41ef2e32-2504-4099-81b1-d989a77393f3')/federatedIdentityCredentials/$entity",
+  "audiences": [
+    "api://AzureADTokenExchange"
+  ],
+  "description": null,
+  "id": "41c3c2eb-2c5f-428d-b289-bf4d890c0bcc",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "name": "github-main-branch",
+  "subject": "repo:itssayeed/digital-banking-aks-cosmos:ref:refs/heads/main"
+}
+
+Create Service Principle in APP=
+=================================
+
+az ad sp create --id e04f7b83-9c5a-4015-9d00-f5e38ffff971
+
+
+Assign ACR Push Role
+==================
+
+az role assignment create `
+  --assignee e04f7b83-9c5a-4015-9d00-f5e38ffff971 `
+  --role AcrPush `
+  --scope $ACR_ID
+ 
+ 
+ Assign AKS DEPLOY Permission
+ ==========================
+ $AKS_ID = az aks show `
+  --name dbanking-aks `
+  --resource-group dbanking-rg `
+  --query id `
+  --output tsv
+  
+  az role assignment create `
+  --assignee e04f7b83-9c5a-4015-9d00-f5e38ffff971 `
+  --role "Azure Kubernetes Service RBAC Writer" `
+  --scope $AKS_ID
+  
+  
+ Assign READER access on RG
+ ===========================
+ 
+ az role assignment create `
+  --assignee e04f7b83-9c5a-4015-9d00-f5e38ffff971 `
+  --role Reader `
+  --scope /subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg
+
+
+
+ Add Github Secrets
+ =================
+ 
+ 🔐 CI/CD — Step 4A: Add GitHub Secrets (OIDC, no passwords)
+
+Go to your GitHub repo → Settings
+ → Secrets and variables → Actions → New repository secret
+
+Add exactly these three secrets (nothing else):
+
+
+1️⃣ AZURE_CLIENT_ID
+e04f7b83-9c5a-4015-9d00-f5e38ffff971
+
+2️⃣ AZURE_TENANT_ID
+
+Run locally if you don’t already have it:
+
+az account show --query tenantId -o tsv
+
+
+Paste the value into GitHub secret.
+
+3️⃣ AZURE_SUBSCRIPTION_ID
+9fd46475-34f3-45af-a671-ab11cb4248a5
+
+
+aks-deploy.yml
+
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: dbankingacr
+  IMAGE_NAME: finbanking-api
+  RESOURCE_GROUP: dbanking-rg
+  AKS_NAME: dbanking-aks
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name $ACR_NAME
+
+      - name: Build and Push Docker image
+        run: |
+          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }} ./FinBanking.API
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }}
+
+      - name: Set AKS context
+        run: |
+          az aks get-credentials \
+            --resource-group $RESOURCE_GROUP \
+            --name $AKS_NAME \
+            --overwrite-existing
+
+      - name: Deploy to AKS
+        run: |
+          kubectl set image deployment/finbanking-api \
+            finbanking-api=$ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }}
+
+
+✅ THE CORRECT FIX (ONE STEP ONLY)
+
+You must assign Azure-level role:
+
+🎯 Azure Kubernetes Service Cluster User Role
+
+This role explicitly allows:
+
+listClusterUserCredential
+
+get-credentials
+
+$AKS_ID = az aks show `
+  --name dbanking-aks `
+  --resource-group dbanking-rg `
+  --query id `
+  --output tsv
+
+az role assignment create `
+  --assignee-object-id 1619ceeb-18fd-45ed-a89f-b99a3f5ee35d `
+  --assignee-principal-type ServicePrincipal `
+  --role "Azure Kubernetes Service Cluster User Role" `
+  --scope $AKS_ID
+
+Now run pipeline with dummy
+==========================
+
+echo "# trigger pipeline" >> ci-test.txt
+git add ci-test.txt
+git commit -m "chore: trigger pipeline after AKS RBAC fix"
+git push
+
+
+GIT HUB Action NOW SHOWED GREEN

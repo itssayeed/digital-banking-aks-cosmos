@@ -1,0 +1,371 @@
+PHASE 2
+=======
+
+Add following packages
+=====================
+
+dotnet add package Azure.Identity
+dotnet add package Azure.Security.KeyVault.Secrets
+
+
+
+KeyVaultConfigurationLoader.cs
+==============================
+
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+namespace FinBanking.API.Configuration
+{
+    public class KeyVaultConfigurationLoader
+    {
+        private readonly SecretClient _secretClient;
+
+        public KeyVaultConfigurationLoader(string keyVaultUri)
+        {
+            if (string.IsNullOrWhiteSpace(keyVaultUri))
+                throw new InvalidOperationException("Key Vault URI is missing");
+
+            _secretClient = new SecretClient(
+                new Uri(keyVaultUri),
+                new DefaultAzureCredential());
+        }
+
+        public async Task<string> GetRequiredSecretAsync(string secretName)
+        {
+            if (string.IsNullOrWhiteSpace(secretName))
+                throw new ArgumentException("Secret name cannot be empty");
+
+            KeyVaultSecret secret = await _secretClient.GetSecretAsync(secretName);
+
+            if (string.IsNullOrWhiteSpace(secret.Value))
+                throw new InvalidOperationException($"Secret '{secretName}' is empty or missing");
+
+            return secret.Value;
+        }
+    }
+}
+
+
+Program.cs
+==========
+
+using FinBanking.Api.DTOs;
+using FinBanking.Api.Services;
+using Microsoft.Azure.Cosmos;
+using Azure.Identity;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ---------------------------------------------------------------
+// Key Vault – startup fail-fast configuration
+// ---------------------------------------------------------------
+var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
+
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    var kvLoader = new KeyVaultConfigurationLoader(keyVaultUri);
+
+    var cosmosEndpointFromKv =
+        await kvLoader.GetRequiredSecretAsync("cosmos-endpoint");
+
+    Environment.SetEnvironmentVariable(
+        "COSMOS_ENDPOINT",
+        cosmosEndpointFromKv);
+}
+
+// ---------------------------------------------------------------
+// Load configuration (supports local via appsettings.Development.json,
+// Docker via env variables, and AKS via secrets)
+// ---------------------------------------------------------------
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+var config = builder.Configuration;
+
+// ---------------------------------------------------------------
+// Cosmos DB registration
+// ---------------------------------------------------------------
+var cosmosConn = config["COSMOS_ENDPOINT"]
+    ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
+
+builder.Services.AddSingleton<CosmosClient>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+
+    var endpoint = configuration["COSMOS_ENDPOINT"]
+        ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
+
+    var authMode = configuration["AuthMode"] ?? "Key";
+
+    // 🔐 Managed Identity (FOR LATER)
+    if (authMode.Equals("ManagedIdentity", StringComparison.OrdinalIgnoreCase))
+    {        
+        // Later you will replace above with:
+        return new CosmosClient(endpoint, new DefaultAzureCredential());
+    }
+
+    // 🔑 Key-based auth (CURRENT)
+    var key = Environment.GetEnvironmentVariable("COSMOS_KEY")
+        ?? throw new InvalidOperationException("COSMOS_KEY missing");
+
+    return new CosmosClient(endpoint, key);
+});
+
+
+// MATCHES your exact repository constructor: (CosmosClient, IConfiguration)
+builder.Services.AddScoped<IAccountRepository>(provider =>
+{
+    var client = provider.GetRequiredService<CosmosClient>();
+    var configuration = provider.GetRequiredService<IConfiguration>();
+
+    return new CosmosAccountRepository(client, configuration);
+});
+
+
+// ---------------------------------------------------------------
+// Swagger
+// ---------------------------------------------------------------
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseHttpsRedirection();
+
+// ---------------------------------------------------------------
+// CRUD API ENDPOINTS
+// ---------------------------------------------------------------
+
+// CREATE
+app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var account = new Account
+    {
+        Id = Guid.NewGuid().ToString(),
+        CustomerName = dto.CustomerName,
+        Email = dto.Email,
+        Balance = dto.Balance        
+    };
+
+    var created = await repo.CreateAsync(account);
+
+    return Results.Created($"/api/accounts/{created.Id}", new AccountDto(
+        created.Id,
+        created.CustomerName,
+        created.Email,
+        created.Balance,
+        created.CreatedAt
+    ));
+});
+
+// READ ONE
+app.MapGet("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
+{
+    var account = await repo.GetByIdAsync(id);
+    return account is null
+        ? Results.NotFound()
+        : Results.Ok(new AccountDto(
+            account.Id,
+            account.CustomerName,
+            account.Email,
+            account.Balance,
+            account.CreatedAt
+        ));
+});
+
+// READ ALL
+app.MapGet("/api/accounts", async (IAccountRepository repo) =>
+{
+    var accounts = await repo.GetAllAsync();
+    var dtos = accounts.Select(a => new AccountDto(
+        a.Id, a.CustomerName, a.Email, a.Balance, a.CreatedAt
+    ));
+    return Results.Ok(dtos);
+});
+
+// UPDATE
+app.MapPut("/api/accounts/{id}", async (string id, CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var existing = await repo.GetByIdAsync(id);
+    if (existing is null) return Results.NotFound();
+
+    var updated = new Account
+    {
+        Id = id,
+        CustomerName = dto.CustomerName,
+        Email = dto.Email,
+        Balance = dto.Balance
+    };
+
+    var result = await repo.UpdateAsync(id, updated);
+    return result is null
+        ? Results.BadRequest()
+        : Results.Ok(new AccountDto(
+            result.Id,
+            result.CustomerName,
+            result.Email,
+            result.Balance,
+            result.CreatedAt
+        ));
+});
+
+// DELETE
+app.MapDelete("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
+{
+    var deleted = await repo.DeleteAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+app.Run();
+
+Fetch Keyvault name
+====================
+az keyvault list `
+  --resource-group dbanking-rg `
+  --query "[].name" `
+  --output table
+	
+
+Assign variables
+===============
+
+$RG = "dbanking-rg"
+$KV_NAME = "dbanking-kv-edjv5"   # use your actual Key Vault name
+$COSMOS_ENDPOINT = "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
+
+
+
+Run
+===
+
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "cosmos-endpoint" `
+  --value $COSMOS_ENDPOINT
+
+
+Incase of access denied error like below
+=========================================
+
+PS D:\azure\digital-banking-aks-cosmos> az keyvault secret set `
+>>   --vault-name $KV_NAME `
+>>   --name "cosmos-endpoint" `
+>>   --value $COSMOS_ENDPOINT
+(Forbidden) The user, group or application 'appid=04b07795-8ddb-461a-bbee-02f9e1bf7b46;oid=f6acf69f-e510-41cd-adcc-485082ec01dc;numgroups=1;iss=https://sts.windows.net/15ba7218-7054-468b-8d52-58c904baf835/' does not have secrets set permission on key vault 'dbankingkvwkyno;location=southindia'. For help resolving this issue, please see https://go.microsoft.com/fwlink/?linkid=2125287
+Code: Forbidden
+Message: The user, group or application 'appid=04b07795-8ddb-461a-bbee-02f9e1bf7b46;oid=f6acf69f-e510-41cd-adcc-485082ec01dc;numgroups=1;iss=https://sts.windows.net/15ba7218-7054-468b-8d52-58c904baf835/' does not have secrets set permission on key vault 'dbankingkvwkyno;location=southindia'. For help resolving this issue, please see https://go.microsoft.com/fwlink/?linkid=2125287
+Inner error: {
+    "code": "AccessDenied"
+}
+
+
+You are logged in as your user identity:
+
+oid = f6acf69f-e510-41cd-adcc-485082ec01dc
+
+
+But your Key Vault is permission-restricted, and you don’t have “set secret” rights.
+
+1️⃣ Get your signed-in user object id (verify)
+$MY_OID = az ad signed-in-user show --query id -o tsv
+
+2️⃣ Grant yourself Key Vault secret permissions
+az keyvault set-policy `
+  --name $KV_NAME `
+  --object-id $MY_OID `
+  --secret-permissions get list set
+  
+RE RUN
+======
+
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "cosmos-endpoint" `
+  --value $COSMOS_ENDPOINT
+
+3️⃣ Get AKS kubelet managed identity object ID
+$KUBELET_ID = az aks show `
+  --resource-group $RG `
+  --name dbanking-aks `
+  --query identityProfile.kubeletidentity.objectId `
+  -o tsv
+  
+  
+
+4️⃣ Grant Key Vault secret read permission
+az keyvault set-policy `
+  --name $KV_NAME `
+  --object-id $KUBELET_ID `
+  --secret-permissions get list
+  
+In deployment.yaml add below vars
+=================================
+- name: KEYVAULT_URI
+  value: "https://dbanking-kv.vault.azure.net/"
+
+Updated deployment.yaml
+-=====================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finbanking-api
+  labels:
+    app: finbanking-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finbanking-api
+  template:
+    metadata:
+      labels:
+        app: finbanking-api
+    spec:
+      containers:
+      - name: finbanking-api
+        image: dbankingacr.azurecr.io/finbanking-api:v1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: COSMOS_ENDPOINT
+          value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
+        - name: COSMOS_DATABASE
+          value: "dbanking"
+        - name: COSMOS_CONTAINER
+          value: "accounts"
+        - name: AuthMode
+          value: "ManagedIdentity"
+        - name: KEYVAULT_URI
+          value: "https://dbankingkvwkyno.vault.azure.net/"
+        ports:
+        - containerPort: 80
+
+
+Run pods
+=======
+kubectl get pods
+
+Check in logs
+============
+
+kubectl logs -l app=finbanking-api
+
+fetch External loadbalancer IP
+=============================
+kubectl get svc
+
+TEST THE API
+===========
+<External IP>/swagger/index.html
+
+
+
+  
+  
+

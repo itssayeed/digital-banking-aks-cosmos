@@ -1,0 +1,250 @@
+AZURE project work in PROGRESS
+
+
+TO DELETE ALL ABOVE RESOURCES
+============================
+az group delete --name dbanking-rg --yes --no-wait
+
+To Create RG
+============
+az group create \
+  --name dbanking-rg \
+  --location southindia
+  
+az group create `
+ --name dbanking-rg `
+ --location southindia
+ 
+Running Main.Bicep
+==================
+
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file infra/main.bicep `
+  --parameters `
+    baseName=dbanking `
+	sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
+
+Resource Deployment using .Bicep files INDIVIDUAL
+===================================================
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 01-acr.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+  
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file 01-acr.bicep `
+  --parameters baseName=dbanking location=southindia
+
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 02-KeyVault.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+  
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file 02-KeyVault.bicep `
+  --parameters baseName=dbanking location=southindia
+
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 03-cosmos.bicep \
+  --parameters baseName=dbanking location=southindia
+
+
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file 03-cosmos.bicep `
+  --parameters baseName=dbanking location=southindia
+
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 04-storage.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+  
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file 04-storage.bicep `
+  --parameters baseName=dbanking location=southindia
+
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 05-aks.bicep \
+  --parameters baseName=dbanking location=southindia sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
+
+
+az deployment group create `
+  --resource-group dbanking-rg `
+  --template-file 05-aks.bicep `
+  --parameters baseName=dbanking location=southindia sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
+
+
+To remove unwanted changes
+==========================
+
+ git restore FinBanking.Api.csproj Program.cs
+ 
+ 
+ To delete specfic file 
+ =======================
+ 
+ rm ../KeyConfigurationLoader.cs
+ 
+ 
+Option 1: Using env variable from power shell command if you want to maintain env variables
+====================================================================================
+
+Authmode:"Key"
+setx COSMOS_KEY ""
+echo $env:COSMOS_KEY
+dotnet build
+dotnet run
+
+Option 2
+========
+
+AuthMode:"ManagedIdentity"
+az login
+az ad signed-in-user show --query id -o tsv
+az cosmosdb sql role assignment create `
+  --account-name dbankingcosmoskerhjw2iy4ptg `
+  --resource-group dbanking-rg `
+  --role-definition-name "Cosmos DB Built-in Data Contributor" `
+  --principal-id f6acf69f-e510-41cd-adcc-485082ec01dc `
+  --scope "/"
+Remove-Item Env:COSMOS_KEY
+setx COSMOS_KEY ""
+dotnet build
+dotnet run
+
+
+
+Build Image locally
+docker build -t finbanking-api:local .
+
+tag image for ACR
+docker tag finbanking-api:local dbankingacr.azurecr.io/finbanking-api:v1
+
+Login to ACR
+az acr login --name dbankingacr
+
+
+Push Image to ACR
+docker push dbankingacr.azurecr.io/finbanking-api:v1
+
+
+Attach ACR to AKS
+az aks update `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --attach-acr dbankingacr
+
+GET AKS Credentials
+az aks get-credentials `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --overwrite-existing
+
+Get KUBELET MI
+$KUBELET_ID = az aks show `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --query identityProfile.kubeletidentity.objectId `
+  -o tsv
+
+Grant COSMOS DB RAC
+$ROLE_ID = az cosmosdb sql role definition list `
+  --account-name dbankingcosmoskerhjw2iy4ptg `
+  --resource-group dbanking-rg `
+  --query "[?roleName=='Cosmos DB Built-in Data Contributor'].id" `
+  -o tsv
+
+az cosmosdb sql role assignment create `
+  --account-name dbankingcosmoskerhjw2iy4ptg `
+  --resource-group dbanking-rg `
+  --scope "/" `
+  --principal-id $KUBELET_ID `
+  --role-definition-id $ROLE_ID
+  
+ az aks get-credentials `
+  --resource-group dbanking-rg `
+  --name dbanking-aks `
+  --overwrite-existing
+
+
+ Finbanking-deployment.yaml
+ 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finbanking-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finbanking-api
+  template:
+    metadata:
+      labels:
+        app: finbanking-api
+    spec:
+      containers:
+      - name: finbanking-api
+        image: dbankingacr.azurecr.io/finbanking-api:v1
+        env:
+        - name: COSMOS_ENDPOINT
+          value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
+        - name: COSMOS_DATABASE
+          value: "dbanking"
+        - name: COSMOS_CONTAINER
+          value: "accounts"
+        - name: AuthMode
+          value: "ManagedIdentity"
+        ports:
+        - containerPort: 80
+
+
+Deploy API
+kubectl apply -f finbanking-deployment.yaml
+
+
+Wait for POD
+kubectl wait --for=condition=available deployment/finbanking-api
+
+
+Finbanking-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: finbanking-api-svc
+spec:
+  type: LoadBalancer
+  selector:
+    app: finbanking-api
+  ports:
+  - port: 80
+    targetPort: 8080
+
+
+Create Loadbalancer Service
+kubectl apply -f finbanking-service.yaml
+
+
+Get external IP
+kubectl get svc finbanking-api-svc
+
+
+Test
+<external IP>/swagger/index.html
+
+
+ 

@@ -1,0 +1,263 @@
+PHASE 3 - APP Insights
+=====================
+
+Create an Appication Insights resource
+
+az monitor app-insights component create `
+  --app finbanking-appinsights `
+  --location southindia `
+  --resource-group dbanking-rg `
+  --application-type web
+
+
+Get App Insights Connection string
+================================
+
+az monitor app-insights component show `
+  --app finbanking-appinsights `
+  --resource-group dbanking-rg `
+  --query connectionString `
+  -o tsv
+
+
+SAVE conn string to KeyVault
+============================
+
+az keyvault secret set `
+  --vault-name dbanking-kv-edjv5 `
+  --name "appinsights-connection-string" `
+  --value "InstrumentationKey=39374e62-bb8e-41ed-ac1f-ee00685b4cc4;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/;LiveEndpoint=https://southindia.livediagnostics.monitor.azure.com/;ApplicationId=432663d4-faf8-44e4-b5a7-26e9161cd1d2"
+
+Add Package
+=========
+dotnet add package Microsoft.ApplicationInsights.AspNetCore
+
+Updated Program.cs
+=================
+
+using FinBanking.Api.DTOs;
+using FinBanking.Api.Services;
+using Microsoft.Azure.Cosmos;
+using Azure.Identity;
+using FinBanking.Api.Configuration;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ---------------------------------------------------------------
+// Key Vault – startup fail-fast configuration
+// ---------------------------------------------------------------
+KeyVaultConfigurationLoader? kvLoader = null;
+
+var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
+
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    kvLoader = new KeyVaultConfigurationLoader(keyVaultUri);
+
+    // Cosmos endpoint
+    var cosmosEndpointFromKv =
+        await kvLoader.GetRequiredSecretAsync("cosmos-endpoint");
+
+    Environment.SetEnvironmentVariable(
+        "COSMOS_ENDPOINT",
+        cosmosEndpointFromKv);
+
+    // Application Insights
+    var appInsightsConnString =
+        await kvLoader.GetRequiredSecretAsync("appinsights-connection-string");
+
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = appInsightsConnString;
+    });
+}
+
+// ---------------------------------------------------------------
+// Load configuration
+// ---------------------------------------------------------------
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+var config = builder.Configuration;
+
+// ---------------------------------------------------------------
+// Cosmos DB registration
+// ---------------------------------------------------------------
+builder.Services.AddSingleton<CosmosClient>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+
+    var endpoint = configuration["COSMOS_ENDPOINT"]
+        ?? throw new InvalidOperationException("COSMOS_ENDPOINT missing");
+
+    var authMode = configuration["AuthMode"] ?? "Key";
+
+    if (authMode.Equals("ManagedIdentity", StringComparison.OrdinalIgnoreCase))
+    {
+        return new CosmosClient(endpoint, new DefaultAzureCredential());
+    }
+
+    var key = Environment.GetEnvironmentVariable("COSMOS_KEY")
+        ?? throw new InvalidOperationException("COSMOS_KEY missing");
+
+    return new CosmosClient(endpoint, key);
+});
+
+builder.Services.AddScoped<IAccountRepository>(provider =>
+{
+    var client = provider.GetRequiredService<CosmosClient>();
+    var configuration = provider.GetRequiredService<IConfiguration>();
+
+    return new CosmosAccountRepository(client, configuration);
+});
+
+// ---------------------------------------------------------------
+// Swagger
+// ---------------------------------------------------------------
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseHttpsRedirection();
+
+// ---------------------------------------------------------------
+// CRUD API
+// ---------------------------------------------------------------
+app.MapPost("/api/accounts", async (CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var account = new Account
+    {
+        Id = Guid.NewGuid().ToString(),
+        CustomerName = dto.CustomerName,
+        Email = dto.Email,
+        Balance = dto.Balance
+    };
+
+    var created = await repo.CreateAsync(account);
+
+    return Results.Created($"/api/accounts/{created.Id}", new AccountDto(
+        created.Id,
+        created.CustomerName,
+        created.Email,
+        created.Balance,
+        created.CreatedAt
+    ));
+});
+
+app.MapGet("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
+{
+    var account = await repo.GetByIdAsync(id);
+    return account is null
+        ? Results.NotFound()
+        : Results.Ok(new AccountDto(
+            account.Id,
+            account.CustomerName,
+            account.Email,
+            account.Balance,
+            account.CreatedAt
+        ));
+});
+
+app.MapGet("/api/accounts", async (IAccountRepository repo) =>
+{
+    var accounts = await repo.GetAllAsync();
+    return Results.Ok(accounts.Select(a =>
+        new AccountDto(a.Id, a.CustomerName, a.Email, a.Balance, a.CreatedAt)));
+});
+
+app.MapPut("/api/accounts/{id}", async (string id, CreateAccountDto dto, IAccountRepository repo) =>
+{
+    var existing = await repo.GetByIdAsync(id);
+    if (existing is null) return Results.NotFound();
+
+    existing.CustomerName = dto.CustomerName;
+    existing.Email = dto.Email;
+    existing.Balance = dto.Balance;
+
+    var result = await repo.UpdateAsync(id, existing);
+    return Results.Ok(new AccountDto(
+        result.Id,
+        result.CustomerName,
+        result.Email,
+        result.Balance,
+        result.CreatedAt
+    ));
+});
+
+app.MapDelete("/api/accounts/{id}", async (string id, IAccountRepository repo) =>
+{
+    var deleted = await repo.DeleteAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+app.Run();
+
+KeyvaultConfigurationLoader.cs
+================================
+
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+namespace FinBanking.Api.Configuration;
+
+public class KeyVaultConfigurationLoader
+{
+    private readonly SecretClient _secretClient;
+
+    public KeyVaultConfigurationLoader(string keyVaultUri)
+    {
+        if (string.IsNullOrWhiteSpace(keyVaultUri))
+            throw new InvalidOperationException("Key Vault URI is missing");
+
+        _secretClient = new SecretClient(
+            new Uri(keyVaultUri),
+            new DefaultAzureCredential());
+    }
+
+    public async Task<string> GetRequiredSecretAsync(string secretName)
+    {
+        if (string.IsNullOrWhiteSpace(secretName))
+            throw new ArgumentException("Secret name cannot be empty");
+
+        KeyVaultSecret secret = await _secretClient.GetSecretAsync(secretName);
+
+        if (string.IsNullOrWhiteSpace(secret.Value))
+            throw new InvalidOperationException($"Secret '{secretName}' is empty or missing");
+
+        return secret.Value;
+    }
+}
+
+
+
+
+Now REBUILD & PUSH IMAGE
+========================
+docker build -t finbanking-api:v2 .
+docker tag finbanking-api:v2 dbankingacr.azurecr.io/finbanking-api:v2
+az acr login --name dbankingacr
+docker push dbankingacr.azurecr.io/finbanking-api:v2
+
+Update running deploymet to use V2 version of image
+================================================
+kubectl set image deployment/finbanking-api finbanking-api=dbankingacr.azurecr.io/finbanking-api:v2
+
+Verify ROLLOUT
+=============
+kubectl rollout status deployment/finbanking-api
+
+RUN THIS and see appliction insights can capture telemetry
+======================================================
+http://finbanking.local/swagger/index.html
+
+Open Azure portal -> navigate ApP insights-> See activity or logs or you can see some traffic spikes 
+
+
+

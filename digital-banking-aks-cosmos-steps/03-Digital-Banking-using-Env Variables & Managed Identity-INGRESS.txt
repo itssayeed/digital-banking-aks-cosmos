@@ -1,0 +1,91 @@
+PHASE 3 - Usage of INGRESS
+===========================
+Install Nginx
+============
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.6/deploy/static/provider/cloud/deploy.yaml
+
+Confirm/Validate installation
+=============================
+
+kubectl get pods -n ingress-nginx
+
+Update the sinbanking-service.yaml
+================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: finbanking-api-svc
+  labels:
+    app: finbanking-api
+spec:
+  type: ClusterIP
+  selector:
+    app: finbanking-api
+  ports:
+  - port: 80
+    targetPort: 8080
+
+
+Run command
+===========
+
+kubectl apply -f finbanking-service.yaml
+
+kubectl get svc finbanking-api-svc
+
+
+Create Finbanking-ingress.yaml
+==============================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finbanking-api-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: finbanking.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: finbanking-api-svc
+            port:
+              number: 80
+
+
+Run command
+=============
+
+kubectl apply -f finbanking-ingress.yaml
+
+kubectl get ingress
+
+
+MAP host name to INgress IP
+===========================
+Open notepad in Admin
+C:\Windows\System32\drivers\etc\hosts
+
+Add this line
+74.225.24.81  finbanking.local
+
+Save
+
+
+Now test
+=======
+http://finbanking.local/swagger/index.html
+
+
+
+
+
+
+
