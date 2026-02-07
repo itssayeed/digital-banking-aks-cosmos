@@ -236,7 +236,7 @@ Assign variables
 ===============
 
 $RG = "dbanking-rg"
-$KV_NAME = "dbanking-kv-edjv5"   # use your actual Key Vault name
+$KV_NAME = "dbankingkvzy4pk"   # use your actual Key Vault name
 $COSMOS_ENDPOINT = "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
 
 
