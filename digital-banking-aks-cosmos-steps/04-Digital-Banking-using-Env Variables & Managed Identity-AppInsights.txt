@@ -10,6 +10,14 @@ az monitor app-insights component create `
   --application-type web
 
 
+Verify 
+======
+az monitor app-insights component show `
+  --app finbanking-appinsights `
+  --resource-group dbanking-rg `
+  --query name
+
+
 Get App Insights Connection string
 ================================
 
@@ -18,7 +26,11 @@ az monitor app-insights component show `
   --resource-group dbanking-rg `
   --query connectionString `
   -o tsv
-
+  
+O/P
+===
+InstrumentationKey=6a88a951-cb9c-4ff6-8589-1a293d282c15;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/;LiveEndpoint=https://southindia.livediagnostics.monitor.azure.com/;ApplicationId=a5ad7d73-4f01-4d26-ac65-53a36fce0625
+ 
 
 SAVE conn string to KeyVault
 ============================
@@ -30,11 +42,13 @@ az keyvault secret set `
 
 Add Package
 =========
-dotnet add package Microsoft.ApplicationInsights.AspNetCore
+dotnet add package Azure.Extensions.AspNetCore.Configuration.Secrets
+dotnet add package Azure.Security.KeyVault.Secrets
+dotnet add package Azure.Identity
+
 
 Updated Program.cs
 =================
-
 using FinBanking.Api.DTOs;
 using FinBanking.Api.Services;
 using Microsoft.Azure.Cosmos;
@@ -44,11 +58,21 @@ using FinBanking.Api.Configuration;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------
-// Key Vault – startup fail-fast configuration
+// Load Key Vault into Configuration (Managed Identity)
+// ---------------------------------------------------------------
+var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
+
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new DefaultAzureCredential());
+}
+
+// ---------------------------------------------------------------
+// Key Vault – startup fail-fast configuration (keep Cosmos logic as-is)
 // ---------------------------------------------------------------
 KeyVaultConfigurationLoader? kvLoader = null;
-
-var keyVaultUri = Environment.GetEnvironmentVariable("KEYVAULT_URI");
 
 if (!string.IsNullOrWhiteSpace(keyVaultUri))
 {
@@ -61,15 +85,6 @@ if (!string.IsNullOrWhiteSpace(keyVaultUri))
     Environment.SetEnvironmentVariable(
         "COSMOS_ENDPOINT",
         cosmosEndpointFromKv);
-
-    // Application Insights
-    var appInsightsConnString =
-        await kvLoader.GetRequiredSecretAsync("appinsights-connection-string");
-
-    builder.Services.AddApplicationInsightsTelemetry(options =>
-    {
-        options.ConnectionString = appInsightsConnString;
-    });
 }
 
 // ---------------------------------------------------------------
@@ -81,7 +96,10 @@ builder.Configuration
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-var config = builder.Configuration;
+// ---------------------------------------------------------------
+// Application Insights (auto-reads from Key Vault config)
+// ---------------------------------------------------------------
+builder.Services.AddApplicationInsightsTelemetry();
 
 // ---------------------------------------------------------------
 // Cosmos DB registration
@@ -240,18 +258,24 @@ public class KeyVaultConfigurationLoader
 
 Now REBUILD & PUSH IMAGE
 ========================
-docker build -t finbanking-api:v2 .
-docker tag finbanking-api:v2 dbankingacr.azurecr.io/finbanking-api:v2
+docker build -t finbanking-api:v4 .
+docker tag finbanking-api:v4 dbankingacr.azurecr.io/finbanking-api:v4
+
+
 az acr login --name dbankingacr
-docker push dbankingacr.azurecr.io/finbanking-api:v2
+
+docker push dbankingacr.azurecr.io/finbanking-api:v4
+
 
 Update running deploymet to use V2 version of image
 ================================================
-kubectl set image deployment/finbanking-api finbanking-api=dbankingacr.azurecr.io/finbanking-api:v2
+kubectl set image deployment/finbanking-api finbanking-api=dbankingacr.azurecr.io/finbanking-api:v4
+
 
 Verify ROLLOUT
 =============
 kubectl rollout status deployment/finbanking-api
+
 
 RUN THIS and see appliction insights can capture telemetry
 ======================================================
