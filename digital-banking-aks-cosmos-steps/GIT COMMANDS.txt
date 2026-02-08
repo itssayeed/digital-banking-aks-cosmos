@@ -1,0 +1,17 @@
+
+To remove unwanted changes
+==========================
+
+ git restore FinBanking.Api.csproj Program.cs
+ 
+ 
+ To delete specfic file 
+ =======================
+ 
+ rm ../KeyConfigurationLoader.cs
+ 
+ To remove specfic file
+ =====================
+ git rm infra/05-aks-extra.bicep
+
+

@@ -1,6 +1,7 @@
 param baseName string
 param location string
 param sshPublicKey string
+param acrName string
 
 var aksName = '${baseName}-aks'
 
@@ -23,7 +24,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
     agentPoolProfiles: [
       {
         name: 'systempool'
-        count: 1             // 1 node so cluster can start
+        count: 1
         vmSize: 'Standard_B2s'
         osType: 'Linux'
         osSKU: 'Ubuntu'
@@ -51,6 +52,22 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
     }
 
     enableRBAC: true
+  }
+}
+
+resource acrRes 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' existing = {
+  name: acrName
+}
+
+resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(subscription().id, acrName, aks.name, 'acrpull')
+  scope: acrRes
+  properties: {
+    principalId: aks.identity.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+    )
   }
 }
 

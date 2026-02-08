@@ -24,7 +24,7 @@ SAVE conn string to KeyVault
 ============================
 
 az keyvault secret set `
-  --vault-name dbanking-kv-edjv5 `
+  --vault-name dbanking-kv-rblet `
   --name "appinsights-connection-string" `
   --value "InstrumentationKey=39374e62-bb8e-41ed-ac1f-ee00685b4cc4;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/;LiveEndpoint=https://southindia.livediagnostics.monitor.azure.com/;ApplicationId=432663d4-faf8-44e4-b5a7-26e9161cd1d2"
 

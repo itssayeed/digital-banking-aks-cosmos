@@ -238,127 +238,87 @@ Assign variables
 $RG = "dbanking-rg"
 $KV_NAME = "dbankingkvzy4pk"   # use your actual Key Vault name
 $COSMOS_ENDPOINT = "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
-
-
-
-Run
-===
-
-az keyvault secret set `
-  --vault-name $KV_NAME `
-  --name "cosmos-endpoint" `
-  --value $COSMOS_ENDPOINT
-
-
-Incase of access denied error like below
-=========================================
-
-PS D:\azure\digital-banking-aks-cosmos> az keyvault secret set `
->>   --vault-name $KV_NAME `
->>   --name "cosmos-endpoint" `
->>   --value $COSMOS_ENDPOINT
-(Forbidden) The user, group or application 'appid=04b07795-8ddb-461a-bbee-02f9e1bf7b46;oid=f6acf69f-e510-41cd-adcc-485082ec01dc;numgroups=1;iss=https://sts.windows.net/15ba7218-7054-468b-8d52-58c904baf835/' does not have secrets set permission on key vault 'dbankingkvwkyno;location=southindia'. For help resolving this issue, please see https://go.microsoft.com/fwlink/?linkid=2125287
-Code: Forbidden
-Message: The user, group or application 'appid=04b07795-8ddb-461a-bbee-02f9e1bf7b46;oid=f6acf69f-e510-41cd-adcc-485082ec01dc;numgroups=1;iss=https://sts.windows.net/15ba7218-7054-468b-8d52-58c904baf835/' does not have secrets set permission on key vault 'dbankingkvwkyno;location=southindia'. For help resolving this issue, please see https://go.microsoft.com/fwlink/?linkid=2125287
-Inner error: {
-    "code": "AccessDenied"
-}
-
-
-You are logged in as your user identity:
-
-oid = f6acf69f-e510-41cd-adcc-485082ec01dc
-
-
-But your Key Vault is permission-restricted, and you don’t have “set secret” rights.
-
-1️⃣ Get your signed-in user object id (verify)
 $MY_OID = az ad signed-in-user show --query id -o tsv
 
-2️⃣ Grant yourself Key Vault secret permissions
-az keyvault set-policy `
-  --name $KV_NAME `
-  --object-id $MY_OID `
-  --secret-permissions get list set
-  
-RE RUN
-======
+This command grants you (the logged-in user) permission to create, update, and manage secrets in the specified Azure Key Vault using RBAC.
+===========================================================================================================================================
+az role assignment create `
+  --assignee-object-id $MY_OID `
+  --assignee-principal-type User `
+  --role "Key Vault Secrets Officer" `
+  --scope "/subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+
+SET the secret
+==============
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "cosmos-endpoint" `
+  --value $COSMOS_ENDPOINT
+
+This command fetches the AKS kubelet managed identity’s Object ID, which is used to grant your AKS nodes permission (e.g., to read secrets from Key Vault).
+=========================================================================================================================================================
+$KUBELET_OID = az aks show `
+  -g dbanking-rg `
+  -n dbanking-aks `
+  --query identityProfile.kubeletidentity.objectId `
+  -o tsv
+
+az role assignment create `
+  --assignee-object-id $KUBELET_OID `
+  --assignee-principal-type ServicePrincipal `
+  --role "Key Vault Secrets User" `
+  --scope "/subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+
+This grants your AKS kubelet managed identity permission to read secrets from the Key Vault, so pods using Managed Identity can access secrets at runtime.
+=========================================================================================================================================================
+az role assignment list `
+  --assignee $MY_OID `
+  --scope "/subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg/providers/Microsoft.KeyVault/vaults/$KV_NAME" `
+  -o table
+
+This gives your signed-in user account permission to create/update/delete Key Vault secrets, so you can manage secrets (like setting cosmos-endpoint) from the CLI.
+===============================================================================================================================================================
+az role assignment create `
+  --assignee-object-id $MY_OID `
+  --assignee-principal-type User `
+  --role "Key Vault Secrets Officer" `
+  --scope "/subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+
+This command stores the Cosmos DB endpoint as a secret in Azure Key Vault, so your app can securely read it later using Managed Identity instead of hardcoding it in YAML/configuration
+=========================================================================================
 
 az keyvault secret set `
   --vault-name $KV_NAME `
   --name "cosmos-endpoint" `
   --value $COSMOS_ENDPOINT
 
-3️⃣ Get AKS kubelet managed identity object ID
+$RG = "dbanking-rg"
+$AKS_NAME = "dbanking-aks"
+
+This command fetches the AKS kubelet’s managed identity Object ID, which you need to grant Key Vault access so pods running on AKS can read secrets securely using Managed Identity.
+=======================================================================
 $KUBELET_ID = az aks show `
   --resource-group $RG `
-  --name dbanking-aks `
+  --name $AKS_NAME `
   --query identityProfile.kubeletidentity.objectId `
   -o tsv
-  
-  
 
-4️⃣ Grant Key Vault secret read permission
-az keyvault set-policy `
-  --name $KV_NAME `
-  --object-id $KUBELET_ID `
-  --secret-permissions get list
-  
-In deployment.yaml add below vars
-=================================
-- name: KEYVAULT_URI
-  value: "https://dbanking-kv.vault.azure.net/"
+$KUBELET_ID
 
-Updated deployment.yaml
--=====================
+This command grants the AKS kubelet managed identity permission to read secrets from Key Vault, so your pods can access secrets securely using Managed Identity (RBAC) at runtime
+==========================================================================
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: finbanking-api
-  labels:
-    app: finbanking-api
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: finbanking-api
-  template:
-    metadata:
-      labels:
-        app: finbanking-api
-    spec:
-      containers:
-      - name: finbanking-api
-        image: dbankingacr.azurecr.io/finbanking-api:v1
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: COSMOS_ENDPOINT
-          value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
-        - name: COSMOS_DATABASE
-          value: "dbanking"
-        - name: COSMOS_CONTAINER
-          value: "accounts"
-        - name: AuthMode
-          value: "ManagedIdentity"
-        - name: KEYVAULT_URI
-          value: "https://dbankingkvwkyno.vault.azure.net/"
-        ports:
-        - containerPort: 80
+az role assignment create `
+  --assignee-object-id $KUBELET_ID `
+  --assignee-principal-type ServicePrincipal `
+  --role "Key Vault Secrets User" `
+  --scope "/subscriptions/9fd46475-34f3-45af-a671-ab11cb4248a5/resourceGroups/dbanking-rg/providers/Microsoft.KeyVault/vaults/$KV_NAME"
 
 
-Run pods
-=======
 kubectl get pods
 
-Check in logs
-============
-
-kubectl logs -l app=finbanking-api
-
-fetch External loadbalancer IP
-=============================
 kubectl get svc
+
 
 TEST THE API
 ===========

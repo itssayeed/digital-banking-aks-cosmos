@@ -1,5 +1,7 @@
 param baseName string = 'dbanking'
 param location string = 'southindia'
+param uniqueSuffix string
+
 @description('SSH public key for AKS nodes')
 param sshPublicKey string
 
@@ -18,6 +20,7 @@ module keyVault './02-KeyVault.bicep' = {
   params: {
     baseName: baseName
     location: location
+	uniqueSuffix: uniqueSuffix
   }
 }
 
@@ -39,31 +42,14 @@ module storage './04-storage.bicep' = {
   }
 }
 
-// 5. AKS (no ACR role assignment here)
+// 5. AKS (ACR RBAC handled inside AKS module)
 module aks './05-aks.bicep' = {
   name: 'aksModule'
   params: {
     baseName: baseName
     location: location
     sshPublicKey: sshPublicKey
-  }
-}
-
-// Convert ACR module output → usable resource reference
-resource acrRes 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' existing = {
-  name: acr.outputs.acrName
-}
-
-// Bind AKS -> ACR (AcrPull)
-resource acrAksPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(aks.outputs.aksPrincipalId, acr.outputs.acrId, 'acrpull')
-  scope: acrRes
-  properties: {
-    principalId: aks.outputs.aksPrincipalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-    )
+    acrName: acr.outputs.acrName
   }
 }
 

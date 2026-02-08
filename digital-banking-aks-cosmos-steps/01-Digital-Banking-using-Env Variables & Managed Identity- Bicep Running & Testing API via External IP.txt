@@ -1,15 +1,12 @@
-AZURE project work in PROGRESS
-
+AZURE project work in PROGRESS STEP 1
+=====================================
 
 TO DELETE ALL ABOVE RESOURCES
 ============================
 az group delete --name dbanking-rg --yes --no-wait
 
-To Create RG
-============
-az group create \
-  --name dbanking-rg \
-  --location southindia
+To Create RG using POWERSHELL COMMANDS
+======================================
   
 az group create `
  --name dbanking-rg `
@@ -17,44 +14,28 @@ az group create `
  
 Running Main.Bicep
 ==================
+$rand = -join ((97..122) | Get-Random -Count 5 | ForEach-Object {[char]$_})
 
 az deployment group create `
   --resource-group dbanking-rg `
   --template-file infra/main.bicep `
   --parameters `
     baseName=dbanking `
+	uniqueSuffix=$rand `
 	sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
 
-Resource Deployment using .Bicep files INDIVIDUAL
-===================================================
+Optional if need to run INDIVIDUAL
+==================================
 
-az deployment group create \
-  --resource-group dbanking-rg \
-  --template-file 01-acr.bicep \
-  --parameters baseName=dbanking location=southindia
-  
-  
 az deployment group create `
   --resource-group dbanking-rg `
   --template-file 01-acr.bicep `
   --parameters baseName=dbanking location=southindia
 
 
-az deployment group create \
-  --resource-group dbanking-rg \
-  --template-file 02-KeyVault.bicep \
-  --parameters baseName=dbanking location=southindia
-  
-  
 az deployment group create `
   --resource-group dbanking-rg `
   --template-file 02-KeyVault.bicep `
-  --parameters baseName=dbanking location=southindia
-
-
-az deployment group create \
-  --resource-group dbanking-rg \
-  --template-file 03-cosmos.bicep \
   --parameters baseName=dbanking location=southindia
 
 
@@ -64,22 +45,10 @@ az deployment group create `
   --parameters baseName=dbanking location=southindia
 
 
-az deployment group create \
-  --resource-group dbanking-rg \
-  --template-file 04-storage.bicep \
-  --parameters baseName=dbanking location=southindia
-  
-  
 az deployment group create `
   --resource-group dbanking-rg `
   --template-file 04-storage.bicep `
   --parameters baseName=dbanking location=southindia
-
-
-az deployment group create \
-  --resource-group dbanking-rg \
-  --template-file 05-aks.bicep \
-  --parameters baseName=dbanking location=southindia sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
 
 
 az deployment group create `
@@ -88,18 +57,41 @@ az deployment group create `
   --parameters baseName=dbanking location=southindia sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
 
 
-To remove unwanted changes
-==========================
+Creater RG using BASH COMMANDS
+==============================
 
- git restore FinBanking.Api.csproj Program.cs
- 
- 
- To delete specfic file 
- =======================
- 
- rm ../KeyConfigurationLoader.cs
- 
- 
+az group create \
+  --name dbanking-rg \
+  --location southindia
+  
+Resource Deployment using .Bicep files INDIVIDUAL
+===================================================
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 01-acr.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 02-KeyVault.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 03-cosmos.bicep \
+  --parameters baseName=dbanking location=southindia
+
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 04-storage.bicep \
+  --parameters baseName=dbanking location=southindia
+  
+az deployment group create \
+  --resource-group dbanking-rg \
+  --template-file 05-aks.bicep \
+  --parameters baseName=dbanking location=southindia sshPublicKey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+grrcca6hh2V0o7A43HkXUsaYtw9mWBmajNvg1uRq2U2WyKDdEUEwkF4qvpcdq82ouviq9lhvRPv8rcJVUduepmaocGwsSV5jo3iqHREgIXsqBqAbuhWQ5i8ffsHuaXdeaQH7exlmtPDN1NQD73JBNmgbG8HSnRrKIZ1i01XYLqPcX0m92awWFSTQjLUHPsW1+dcWKGE6WWViPvk+LTW5dza6sur7x8I+YmdrwM2+8VibYQiynJSd9fQ8lKAwdiTyI5XcC9lCzzUcmIQVYxDtD/SIZkuJiYuduXzSm615TOdzMNGQUVURHQwxM6Kte1OnNrldQ3v+9H7aqY4lVB6Hdfql9mMmiVi/BgN9ZwCBDYnbjjgcHC8NB5Rf1JK0q3x818qOgH9wtOVNKNHmDBpjFn8j4nBvaRtKaOIzRDLqNMRLhxjTwICyObBoZbhB4Eq/VTIbq9Zog7nsQzAeJInMSAnK7OHl4M98senzhySgn6eIGYLjctX14gDWO/oSf7Ln3Qkrzxz9ku93wVdjOaKKCjNR7ZM3Jzw1OKTxWdpZ0JPe2LKwsMyUyYRAlduAODAgRWzhkKnmxUADcjj5gPD3KG21UgBapJhFkB1MQLoy/wpn0fACRKUmtmLZkyF+DUvB5Ro+oJPSmFUKOrGxk4UtgR4rrW8ZQtk+NCkFOWAnnw== itssa@Ahmed"
+
 Option 1: Using env variable from power shell command if you want to maintain env variables
 ====================================================================================
 
@@ -125,7 +117,6 @@ Remove-Item Env:COSMOS_KEY
 setx COSMOS_KEY ""
 dotnet build
 dotnet run
-
 
 
 Build Image locally

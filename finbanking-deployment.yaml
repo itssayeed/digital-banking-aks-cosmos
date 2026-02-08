@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: finbanking-api
-  labels:
-    app: finbanking-api
 spec:
   replicas: 1
   selector:
@@ -17,7 +15,6 @@ spec:
       containers:
       - name: finbanking-api
         image: dbankingacr.azurecr.io/finbanking-api:v1
-        imagePullPolicy: IfNotPresent
         env:
         - name: COSMOS_ENDPOINT
           value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
@@ -27,7 +24,5 @@ spec:
           value: "accounts"
         - name: AuthMode
           value: "ManagedIdentity"
-        - name: KEYVAULT_URI
-          value: "https://dbankingkvwkyno.vault.azure.net/"
         ports:
         - containerPort: 80

@@ -1,8 +1,8 @@
 param baseName string
 param location string
+param uniqueSuffix string
 
-var suffix = toLower(substring(uniqueString(subscription().id, baseName), 0, 5))
-var kvName = '${toLower(baseName)}kv${suffix}'
+var kvName = '${toLower(baseName)}-kv-${uniqueSuffix}'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
   name: kvName
@@ -15,10 +15,9 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
     }
     enableSoftDelete: true
     enablePurgeProtection: true
-    enableRbacAuthorization: true 
+    enableRbacAuthorization: true
     accessPolicies: []
   }
 }
 
-output keyVaultUri string = keyVault.properties.vaultUri
-
+output keyVaultName string = keyVault.name

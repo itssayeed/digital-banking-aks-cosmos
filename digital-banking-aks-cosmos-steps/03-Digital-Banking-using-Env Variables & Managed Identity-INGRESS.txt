@@ -10,7 +10,7 @@ Confirm/Validate installation
 
 kubectl get pods -n ingress-nginx
 
-Update the sinbanking-service.yaml
+Update the finbanking-service.yaml
 ================================
 
 apiVersion: v1
@@ -44,14 +44,23 @@ kind: Ingress
 metadata:
   name: finbanking-api-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
 spec:
   ingressClassName: nginx
   rules:
+  - http:
+      paths:
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: finbanking-api-svc
+            port:
+              number: 80
   - host: finbanking.local
     http:
       paths:
-      - path: /
+      - path: /(.*)
         pathType: Prefix
         backend:
           service:
@@ -60,18 +69,23 @@ spec:
               number: 80
 
 
+
+
+
 Run command
 =============
 
 kubectl apply -f finbanking-ingress.yaml
 
+
 kubectl get ingress
 
+kubectl get svc -n ingress-nginx
 
 MAP host name to INgress IP
 ===========================
 Open notepad in Admin
-C:\Windows\System32\drivers\etc\hosts
+C:\Windows\System32\drivers\etc\hosts (Configure External IP of teh output in hosts file ex:- 20.219.115.133  finbanking.local)
 
 Add this line
 74.225.24.81  finbanking.local
