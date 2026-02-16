@@ -1,4 +1,4 @@
-PHASE 3 - APP Insights
+PHASE 4 - APP Insights
 =====================
 
 Create an Appication Insights resource
