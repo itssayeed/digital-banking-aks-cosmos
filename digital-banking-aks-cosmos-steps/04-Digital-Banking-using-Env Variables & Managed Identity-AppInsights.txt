@@ -36,9 +36,9 @@ SAVE conn string to KeyVault
 ============================
 
 az keyvault secret set `
-  --vault-name dbanking-kv-rblet `
+  --vault-name dbanking-kv-tkhjc `
   --name "appinsights-connection-string" `
-  --value "InstrumentationKey=39374e62-bb8e-41ed-ac1f-ee00685b4cc4;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/;LiveEndpoint=https://southindia.livediagnostics.monitor.azure.com/;ApplicationId=432663d4-faf8-44e4-b5a7-26e9161cd1d2"
+  --value "InstrumentationKey=09674502-cebf-4760-b589-11a9dc186a1f;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/;LiveEndpoint=https://southindia.livediagnostics.monitor.azure.com/;ApplicationId=faa7ea55-d584-4368-8c37-90439d181a52"
 
 Add Package
 =========
@@ -266,6 +266,61 @@ az acr login --name dbankingacr
 
 docker push dbankingacr.azurecr.io/finbanking-api:v4
 
+Finbanking-deployment.yaml
+=========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finbanking-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finbanking-api
+  template:
+    metadata:
+      labels:
+        app: finbanking-api
+    spec:
+      containers:
+      - name: finbanking-api
+        image: dbankingacr.azurecr.io/finbanking-api:v1
+        env:
+        - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+          value: "InstrumentationKey=09674502-cebf-4760-b589-11a9dc186a1f;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/"
+        - name: COSMOS_ENDPOINT
+          value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
+        - name: COSMOS_DATABASE
+          value: "dbanking"
+        - name: COSMOS_CONTAINER
+          value: "accounts"
+        - name: AuthMode
+          value: "ManagedIdentity"
+        ports:
+        - containerPort: 80
+
+TO GET CURRENT CONNECTION STRING
+===============================
+ az monitor app-insights component show `
+>>   --app finbanking-appinsights `
+>>   --resource-group dbanking-rg `
+>>   --query connectionString `
+>>   -o tsv
+
+
+To CHECK IF PROPER CONNECTION STRING PASSES
+============================================
+kubectl exec -it finbanking-api-579cc9fccc-99b8f -- printenv | findstr APPLICATIONINSIGHTS
+
+APPLY CHANGES
+=============
+kubectl apply -f finbanking-deployment.yaml
+
+RESTART POD
+==========
+kubectl rollout restart deployment finbanking-api
+
+
 
 Update running deploymet to use V2 version of image
 ================================================
@@ -282,6 +337,3 @@ RUN THIS and see appliction insights can capture telemetry
 http://finbanking.local/swagger/index.html
 
 Open Azure portal -> navigate ApP insights-> See activity or logs or you can see some traffic spikes 
-
-
-
