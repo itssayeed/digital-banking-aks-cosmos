@@ -1,3 +1,4 @@
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -26,3 +27,5 @@ spec:
             name: finbanking-api-svc
             port:
               number: 80
+
+
