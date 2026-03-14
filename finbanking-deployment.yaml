@@ -16,6 +16,8 @@ spec:
       - name: finbanking-api
         image: dbankingacr.azurecr.io/finbanking-api:v1
         env:
+        - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+          value: "InstrumentationKey=09674502-cebf-4760-b589-11a9dc186a1f;IngestionEndpoint=https://southindia-0.in.applicationinsights.azure.com/"
         - name: COSMOS_ENDPOINT
           value: "https://dbankingcosmoskerhjw2iy4ptg.documents.azure.com:443/"
         - name: COSMOS_DATABASE
