@@ -1,23 +1,21 @@
 param baseName string
 param location string
+param tags object = {}
 
-// ------------------------------------------------------------------
-// Cosmos account name
-// - Lowercase (Cosmos requirement)
-// - Unique per resource group
-// ------------------------------------------------------------------
-var cosmosAccountName = toLower('${baseName}cosmos${uniqueString(resourceGroup().id)}')
+var uniqueSuffix = uniqueString(resourceGroup().id)
+var base = toLower('${baseName}cosmos')
+var cosmosAccountName = '${take(base, 44 - length(uniqueSuffix))}${uniqueSuffix}'
 
-// ------------------------------------------------------------------
-// Cosmos DB Account (SQL API, Serverless)
-// ------------------------------------------------------------------
-resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {
   name: cosmosAccountName
   location: location
+  tags: tags
   kind: 'GlobalDocumentDB'
   properties: {
     databaseAccountOfferType: 'Standard'
     enableFreeTier: true
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
 
     capabilities: [
       {
@@ -38,11 +36,9 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
   }
 }
 
-// ------------------------------------------------------------------
-// SQL Database
-// ------------------------------------------------------------------
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
-  name: '${cosmosAccount.name}/dbanking'
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-11-15' = {
+  parent: cosmosAccount
+  name: 'dbanking'
   properties: {
     resource: {
       id: 'dbanking'
@@ -50,11 +46,9 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023
   }
 }
 
-// ------------------------------------------------------------------
-// SQL Container
-// ------------------------------------------------------------------
-resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
-  name: '${cosmosDatabase.name}/accounts'
+resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'accounts'
   properties: {
     resource: {
       id: 'accounts'
@@ -68,12 +62,7 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
-// ------------------------------------------------------------------
-// Outputs (WHAT YOUR APP & PIPELINE SHOULD CONSUME)
-// ------------------------------------------------------------------
 output cosmosAccountName string = cosmosAccount.name
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
-
-// Logical names (what apps usually want)
 output cosmosDatabaseName string = 'dbanking'
 output cosmosContainerName string = 'accounts'

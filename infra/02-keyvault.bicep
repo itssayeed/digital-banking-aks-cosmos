@@ -1,22 +1,25 @@
 param baseName string
 param location string
 param uniqueSuffix string
+param tags object = {}
 
-var kvName = '${toLower(baseName)}-kv-${uniqueSuffix}'
+var kvBase = toLower('${baseName}-kv')
+var kvName = take('${kvBase}${uniqueSuffix}', 24)
 
-resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: kvName
   location: location
+  tags: tags
   properties: {
     tenantId: subscription().tenantId
     sku: {
       family: 'A'
       name: 'standard'
     }
-    enableSoftDelete: true
     enablePurgeProtection: true
     enableRbacAuthorization: true
-    accessPolicies: []
+    publicNetworkAccess: 'Enabled'
+    softDeleteRetentionInDays: 7
   }
 }
 

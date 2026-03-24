@@ -1,14 +1,29 @@
 param baseName string
 param location string
+param tags object = {}
 
-resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
-  name: '${baseName}acr'
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param skuName string = 'Basic'
+
+// Ensure uniqueness + preserve suffix + respect 50 char limit
+var uniqueSuffix = uniqueString(resourceGroup().id)
+var acrBase = toLower('${baseName}acr')
+var acrName = '${take(acrBase, 50 - length(uniqueSuffix))}${uniqueSuffix}'
+
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: acrName
   location: location
+  tags: tags
   sku: {
-    name: 'Basic'
+    name: skuName
   }
   properties: {
-    adminUserEnabled: true
+    adminUserEnabled: false
+    publicNetworkAccess: 'Enabled'
   }
 }
 

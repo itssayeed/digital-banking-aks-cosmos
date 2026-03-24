@@ -1,9 +1,18 @@
 param baseName string = 'dbanking'
 param location string = 'southindia'
-param uniqueSuffix string
 
 @description('SSH public key for AKS nodes')
 param sshPublicKey string
+
+param adminUsername string = 'azureuser'
+
+param tags object = {
+  env: 'dev'
+  project: 'digital-banking'
+}
+
+// 🔥 Centralized suffix (dynamic per deployment)
+var uniqueSuffix = uniqueString(resourceGroup().id, deployment().name)
 
 // 1. ACR
 module acr './01-acr.bicep' = {
@@ -11,16 +20,18 @@ module acr './01-acr.bicep' = {
   params: {
     baseName: baseName
     location: location
+    tags: tags
   }
 }
 
-// 2. Key Vault
-module keyVault './02-KeyVault.bicep' = {
+// 2. Key Vault (fixed)
+module keyVault './02-keyvault.bicep' = {
   name: 'keyVaultModule'
   params: {
     baseName: baseName
     location: location
-	uniqueSuffix: uniqueSuffix
+    uniqueSuffix: uniqueSuffix
+    tags: tags
   }
 }
 
@@ -39,10 +50,11 @@ module storage './04-storage.bicep' = {
   params: {
     baseName: baseName
     location: location
+    tags: tags
   }
 }
 
-// 5. AKS (ACR RBAC handled inside AKS module)
+// 5. AKS
 module aks './05-aks.bicep' = {
   name: 'aksModule'
   params: {
@@ -50,6 +62,7 @@ module aks './05-aks.bicep' = {
     location: location
     sshPublicKey: sshPublicKey
     acrName: acr.outputs.acrName
+    adminUsername: adminUsername
   }
 }
 

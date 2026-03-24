@@ -2,10 +2,11 @@ param baseName string
 param location string
 param sshPublicKey string
 param acrName string
+param adminUsername string = 'azureuser'
 
-var aksName = '${baseName}-aks'
+var aksName = toLower('${baseName}-aks')
 
-resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
+resource aks 'Microsoft.ContainerService/managedClusters@2023-10-01' = {
   name: aksName
   location: location
 
@@ -21,6 +22,14 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
   properties: {
     dnsPrefix: '${baseName}-dns'
 
+    oidcIssuerProfile: {
+      enabled: true
+    }
+
+    workloadIdentityProfile: {
+      workloadIdentityEnabled: true
+    }
+
     agentPoolProfiles: [
       {
         name: 'systempool'
@@ -29,14 +38,17 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
         osType: 'Linux'
         osSKU: 'Ubuntu'
         mode: 'System'
+        type: 'VirtualMachineScaleSets'
         enableAutoScaling: true
         minCount: 1
-        maxCount: 1
+        maxCount: 3
+        osDiskSizeGB: 30
+        maxPods: 30
       }
     ]
 
     linuxProfile: {
-      adminUsername: 'azureuser'
+      adminUsername: adminUsername
       ssh: {
         publicKeys: [
           {
@@ -48,17 +60,24 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-03-01' = {
 
     networkProfile: {
       networkPlugin: 'azure'
+      networkPolicy: 'azure'
       loadBalancerSku: 'standard'
     }
 
     enableRBAC: true
+
+    autoUpgradeProfile: {
+      upgradeChannel: 'stable'
+    }
   }
 }
 
-resource acrRes 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' existing = {
+// Reference existing ACR
+resource acrRes 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
 }
 
+// Assign AcrPull role to AKS
 resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(subscription().id, acrName, aks.name, 'acrpull')
   scope: acrRes
@@ -66,10 +85,11 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: aks.identity.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
     )
   }
 }
 
+// Outputs
 output aksName string = aks.name
 output aksPrincipalId string = aks.identity.principalId
